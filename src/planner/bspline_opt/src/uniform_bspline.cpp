@@ -22,6 +22,7 @@ namespace ego_planner
     n_ = points.cols() - 1;
     m_ = n_ + p_ + 1;
 
+    // 构造节点矢量
     u_ = Eigen::VectorXd::Zero(m_ + 1);
     for (int i = 0; i <= m_; ++i)
     {
@@ -60,7 +61,8 @@ namespace ego_planner
 
   Eigen::VectorXd UniformBspline::evaluateDeBoor(const double &u)
   {
-
+    // 一个B样条对应一个阶
+    // 这里估算u时间的N阶导数
     double ub = min(max(u_(p_), u), u_(m_ - p_));
 
     // determine which [ui,ui+1] lay in
@@ -101,6 +103,7 @@ namespace ego_planner
   {
     // The derivative of a b-spline is also a b-spline, its order become p_-1
     // control point Qi = p_*(Pi+1-Pi)/(ui+p_+1-ui+1)
+    // 获取速度控制点
     Eigen::MatrixXd ctp(control_points_.rows(), control_points_.cols() - 1);
     for (int i = 0; i < ctp.cols(); ++i)
     {
@@ -112,6 +115,7 @@ namespace ego_planner
 
   UniformBspline UniformBspline::getDerivative()
   {
+    // 就是获得高一阶控制点和对应节点矢量
     Eigen::MatrixXd ctp = getDerivativeControlPoints();
     UniformBspline derivative(ctp, p_ - 1, interval_);
 
@@ -129,11 +133,11 @@ namespace ego_planner
   {
     limit_vel_ = vel;
     limit_acc_ = acc;
-    limit_ratio_ = 1.1;
+    limit_ratio_ = 1.1; // 无效
     feasibility_tolerance_ = tolerance;
   }
 
-  bool UniformBspline::checkFeasibility(double &ratio, bool show)
+  bool UniformBspline::checkFeasibility(double &ratio, bool show /* 控制打印 */)
   {
     bool fea = true;
 
@@ -142,11 +146,11 @@ namespace ego_planner
 
     /* check vel feasibility and insert points */
     double max_vel = -1.0;
-    double enlarged_vel_lim = limit_vel_ * (1.0 + feasibility_tolerance_) + 1e-4;
+    double enlarged_vel_lim = limit_vel_ * (1.0 + feasibility_tolerance_) + 1e-4; // 将目标速度增加一点
     for (int i = 0; i < P.cols() - 1; ++i)
     {
       Eigen::VectorXd vel = p_ * (P.col(i + 1) - P.col(i)) / (u_(i + p_ + 1) - u_(i + 1));
-
+      // 独立考虑三轴速度，并不是很严谨
       if (fabs(vel(0)) > enlarged_vel_lim || fabs(vel(1)) > enlarged_vel_lim ||
           fabs(vel(2)) > enlarged_vel_lim)
       {
@@ -188,13 +192,14 @@ namespace ego_planner
       }
     }
 
-    ratio = max(max_vel / limit_vel_, sqrt(fabs(max_acc) / limit_acc_));
+    ratio = max(max_vel / limit_vel_, sqrt(fabs(max_acc) / limit_acc_));  // 用于时间调整
 
     return fea;
   }
 
   void UniformBspline::lengthenTime(const double &ratio)
   {
+    // 对节点矢量进行调整
     int num1 = 5;
     int num2 = getKnot().rows() - 1 - 5;
 
@@ -206,12 +211,11 @@ namespace ego_planner
       u_(i) += delta_t;
   }
 
-  // void UniformBspline::recomputeInit() {}
-
   void UniformBspline::parameterizeToBspline(const double &ts, const vector<Eigen::Vector3d> &point_set,
                                              const vector<Eigen::Vector3d> &start_end_derivative,
                                              Eigen::MatrixXd &ctrl_pts)
   {
+    // 根据给定点和前后导数，初始化控制点
     if (ts <= 0)
     {
       cout << "[B-spline]:time step error." << endl;
@@ -289,8 +293,9 @@ namespace ego_planner
       return -1.0;
   }
 
-  double UniformBspline::getLength(const double &res)
+  double UniformBspline::getLength(const double &res /* 精度 */)
   {
+    // 按时间精度采样，然后计算长度
     double length = 0.0;
     double dur = getTimeSum();
     Eigen::VectorXd p_l = evaluateDeBoorT(0.0), p_n;
@@ -305,6 +310,11 @@ namespace ego_planner
 
   double UniformBspline::getJerk()
   {
+    // 每次计算都需要将控制点进行求导
+    // 实现效率非常低
+
+    // 对加速度进行采样积分
+    // 效率极低效
     UniformBspline jerk_traj = getDerivative().getDerivative().getDerivative();
 
     Eigen::VectorXd times = jerk_traj.getKnot();
@@ -325,6 +335,8 @@ namespace ego_planner
 
   void UniformBspline::getMeanAndMaxVel(double &mean_v, double &max_v)
   {
+    // 按时间进行抽样，然后计算均值和最大值
+    // 效率很低
     UniformBspline vel = getDerivative();
     double tm, tmp;
     vel.getTimeSpan(tm, tmp);

@@ -75,7 +75,7 @@ namespace ego_planner
     Eigen::MatrixXd getControlPoints();
 
     AStar::Ptr a_star_;
-    std::vector<Eigen::Vector3d> ref_pts_;
+    std::vector<Eigen::Vector3d> ref_pts_;  // 参考控制点，由外部输入
 
     std::vector<std::vector<Eigen::Vector3d>> initControlPoints(Eigen::MatrixXd &init_points, bool flag_first_init = true);
     bool BsplineOptimizeTrajRebound(Eigen::MatrixXd &optimal_points, double ts); // must be called after initControlPoints()
@@ -99,9 +99,9 @@ namespace ego_planner
     Eigen::Vector3d end_pt_;  // end of the trajectory
     // int             dim_;                // dimension of the B-spline
     //
-    vector<Eigen::Vector3d> guide_pts_; // geometric guiding path points, N-6
-    vector<Eigen::Vector3d> waypoints_; // waypts constraints
-    vector<int> waypt_idx_;             // waypts constraints index
+    // vector<Eigen::Vector3d> guide_pts_; // geometric guiding path points, N-6 无效
+    // vector<Eigen::Vector3d> waypoints_; // waypts constraints 无效
+    // vector<int> waypt_idx_;             // waypts constraints index 无效
                                         //
     int max_num_id_, max_time_id_;      // stopping criteria
     int cost_function_;                 // used to determine objective function
@@ -114,14 +114,14 @@ namespace ego_planner
     double lambda3_;               // feasibility weight
     double lambda4_;               // curve fitting
 
-    int a;
+    // int a;
     //
     double dist0_;             // safe distance
     double max_vel_, max_acc_; // dynamic limits
 
     int variable_num_;              // optimization variables
     int iter_num_;                  // iteration of the solver
-    Eigen::VectorXd best_variable_; //
+    // Eigen::VectorXd best_variable_; //  无效
     double min_cost_;               //
 
     ControlPoints cps_; // 控制点
@@ -129,8 +129,8 @@ namespace ego_planner
     /* cost function */
     /* calculate each part of cost function with control points q as input */
 
-    static double costFunction(const std::vector<double> &x, std::vector<double> &grad, void *func_data);
-    void combineCost(const std::vector<double> &x, vector<double> &grad, double &cost);
+    // static double costFunction(const std::vector<double> &x, std::vector<double> &grad, void *func_data);
+    // void combineCost(const std::vector<double> &x, vector<double> &grad, double &cost); //
 
     // q contains all control points
     void calcSmoothnessCost(const Eigen::MatrixXd &q, double &cost,

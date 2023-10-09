@@ -1,5 +1,5 @@
 #include "bspline_opt/bspline_optimizer.h"
-#include "bspline_opt/gradient_descent_optimizer.h"
+// #include "bspline_opt/gradient_descent_optimizer.h"
 // using namespace std;
 
 namespace ego_planner
@@ -374,7 +374,7 @@ namespace ego_planner
     force_stop_type_ = DONT_STOP;
     if (iter_num > 3 && smoothness_cost / (cps_.size - 2 * order_) < 0.1) // 0.1 is an experimental value that indicates the trajectory is smooth enough.
     {
-      check_collision_and_rebound();
+      check_collision_and_rebound();  // 计算新的碰撞段和pv对
     }
 
     /*** calculate distance cost and gradient ***/
@@ -446,6 +446,7 @@ namespace ego_planner
 
       for (int i = 0; i < q.cols() - 3; i++)
       {
+        // 此处省略了 / delta t ^ 3
         /* evaluate jerk */
         jerk = q.col(i + 3) - 3 * q.col(i + 2) + 3 * q.col(i + 1) - q.col(i);
         cost += jerk.squaredNorm();
@@ -463,6 +464,7 @@ namespace ego_planner
 
       for (int i = 0; i < q.cols() - 2; i++)
       {
+        // 此处省略了 / delta t ^ 2
         /* evaluate acc */
         acc = q.col(i + 2) - 2 * q.col(i + 1) + q.col(i);
         cost += acc.squaredNorm();
@@ -617,12 +619,15 @@ namespace ego_planner
       Eigen::Vector3d vi = (q.col(i + 1) - q.col(i)) / ts;
 
       //cout << "temp_v * vi=" ;
+      // 对单轴进行约束，这样其实并不合理
       for (int j = 0; j < 3; j++)
       {
         if (vi(j) > max_vel_)
         {
           // cout << "fuck VEL" << endl;
           // cout << vi(j) << endl;
+
+          // 这里乘ts_inv2的操作值得借鉴
           cost += pow(vi(j) - max_vel_, 2) * ts_inv2; // multiply ts_inv3 to make vel and acc has similar magnitude
 
           gradient(j, i + 0) += -2 * (vi(j) - max_vel_) / ts * ts_inv2;
@@ -953,11 +958,13 @@ namespace ego_planner
         double tm, tmp;
         traj.getTimeSpan(tm, tmp);
         double t_step = (tmp - tm) / ((traj.evaluateDeBoorT(tmp) - traj.evaluateDeBoorT(tm)).norm() / grid_map_->getResolution());
+        // 对优化后的轨迹进行碰撞校验
         for (double t = tm; t < tmp * 2 / 3; t += t_step) // Only check the closest 2/3 partition of the whole trajectory.
         {
           flag_occ = grid_map_->getInflateOccupancy(traj.evaluateDeBoorT(t));
           if (flag_occ)
           {
+            // 如果碰撞，直接返回false
             //cout << "hit_obs, t=" << t << " P=" << traj.evaluateDeBoorT(t).transpose() << endl;
 
             if (t <= bspline_interval_) // First 3 control points in obstacles!
