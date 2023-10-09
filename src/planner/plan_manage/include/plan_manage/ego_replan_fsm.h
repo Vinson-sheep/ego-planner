@@ -63,7 +63,7 @@ namespace ego_planner
     int continously_called_times_{0};
 
     Eigen::Vector3d odom_pos_, odom_vel_, odom_acc_; // odometry state
-    Eigen::Quaterniond odom_orient_;
+    Eigen::Quaterniond odom_orient_;  // 没有用上
 
     Eigen::Vector3d init_pt_, start_pt_, start_vel_, start_acc_, start_yaw_; // start state
     Eigen::Vector3d end_pt_, end_vel_;                                       // goal state

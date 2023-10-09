@@ -50,7 +50,7 @@ namespace ego_planner
     cout.precision(3);
     cout << "start: " << start_pt.transpose() << ", " << start_vel.transpose() << "\ngoal:" << local_target_pt.transpose() << ", " << local_target_vel.transpose()
          << endl;
-
+    // 目标点过近，无需规划
     if ((start_pt - local_target_pt).norm() < 0.2)
     {
       cout << "Close to goal" << endl;
@@ -62,10 +62,12 @@ namespace ego_planner
     ros::Duration t_init, t_opt, t_refine;
 
     /*** STEP 1: INIT ***/
+    // 如果ts过小则增加到5倍
     double ts = (start_pt - local_target_pt).norm() > 0.1 ? pp_.ctrl_pt_dist / pp_.max_vel_ * 1.2 : pp_.ctrl_pt_dist / pp_.max_vel_ * 5; // pp_.ctrl_pt_dist / pp_.max_vel_ is too tense, and will surely exceed the acc/vel limits
     vector<Eigen::Vector3d> point_set, start_end_derivatives;
     static bool flag_first_call = true, flag_force_polynomial = false;
     bool flag_regenerate = false;
+    // 获取ts / point_set / derivatives
     do
     {
       point_set.clear();
@@ -74,20 +76,25 @@ namespace ego_planner
 
       if (flag_first_call || flag_polyInit || flag_force_polynomial /*|| ( start_pt - local_target_pt ).norm() < 1.0*/) // Initial path generated from a min-snap traj by order.
       {
+        // 初次运行时的操作
         flag_first_call = false;
         flag_force_polynomial = false;
 
         PolynomialTraj gl_traj;
 
         double dist = (start_pt - local_target_pt).norm();
+        // 没看懂这时间是怎么估算的
         double time = pow(pp_.max_vel_, 2) / pp_.max_acc_ > dist ? sqrt(dist / pp_.max_acc_) : (dist - pow(pp_.max_vel_, 2) / pp_.max_acc_) / pp_.max_vel_ + 2 * pp_.max_vel_ / pp_.max_acc_;
 
+        // 生成初始多项式轨迹
         if (!flag_randomPolyTraj)
         {
+          // 仅仅根据起止点生成多项式轨迹
           gl_traj = PolynomialTraj::one_segment_traj_gen(start_pt, start_vel, start_acc, local_target_pt, local_target_vel, Eigen::Vector3d::Zero(), time);
         }
-        else
+        else  
         {
+          // 在起止点中间随机插入点，然后进行min_snap轨迹生成
           Eigen::Vector3d horizen_dir = ((start_pt - local_target_pt).cross(Eigen::Vector3d(0, 0, 1))).normalized();
           Eigen::Vector3d vertical_dir = ((start_pt - local_target_pt).cross(horizen_dir)).normalized();
           Eigen::Vector3d random_inserted_pt = (start_pt + local_target_pt) / 2 +
@@ -105,6 +112,7 @@ namespace ego_planner
         double t;
         bool flag_too_far;
         ts *= 1.5; // ts will be divided by 1.5 in the next
+        // 对多项式轨迹进行抽样，保证航点间时间相同，且距离小于1.5倍阈值
         do
         {
           ts /= 1.5;
@@ -131,13 +139,14 @@ namespace ego_planner
       }
       else // Initial path generated from previous trajectory.
       {
-
+        // 从已有轨迹中规划
         double t;
         double t_cur = (ros::Time::now() - local_data_.start_time_).toSec();
 
         vector<double> pseudo_arc_length;
         vector<Eigen::Vector3d> segment_point;
-        pseudo_arc_length.push_back(0.0);
+        pseudo_arc_length.push_back(0.0); // 累积路径长度
+        // 抽样剩余点
         for (t = t_cur; t < local_data_.duration_ + 1e-3; t += ts)
         {
           segment_point.push_back(local_data_.position_traj_.evaluateDeBoorT(t));
@@ -148,7 +157,8 @@ namespace ego_planner
         }
         t -= ts;
 
-        double poly_time = (local_data_.position_traj_.evaluateDeBoorT(t) - local_target_pt).norm() / pp_.max_vel_ * 2;
+        // 从轨迹最后一个点到目标点直接多项式规划
+        double poly_time = (local_data_.position_traj_.evaluateDeBoorT(t) - local_target_pt).norm() / pp_.max_vel_ * 2; // 梯形减速时间
         if (poly_time > ts)
         {
           PolynomialTraj gl_traj = PolynomialTraj::one_segment_traj_gen(local_data_.position_traj_.evaluateDeBoorT(t),
@@ -175,6 +185,7 @@ namespace ego_planner
         double sample_length = 0;
         double cps_dist = pp_.ctrl_pt_dist * 1.5; // cps_dist will be divided by 1.5 in the next
         size_t id = 0;
+        // 确保采样点超过7个？这个框架有比较大限制
         do
         {
           cps_dist /= 1.5;
@@ -208,6 +219,7 @@ namespace ego_planner
       }
     } while (flag_regenerate);
 
+    // 获取初始B样条
     Eigen::MatrixXd ctrl_pts;
     UniformBspline::parameterizeToBspline(ts, point_set, start_end_derivatives, ctrl_pts);
 

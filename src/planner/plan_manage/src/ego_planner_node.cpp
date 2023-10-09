@@ -1,3 +1,4 @@
+// 算法入口
 #include <ros/ros.h>
 #include <visualization_msgs/Marker.h>
 
@@ -10,7 +11,7 @@ int main(int argc, char **argv)
   ros::init(argc, argv, "ego_planner_node");
   ros::NodeHandle nh("~");
 
-  EGOReplanFSM rebo_replan;
+  EGOReplanFSM rebo_replan; // 唯一调用
 
   rebo_replan.init(nh);
 

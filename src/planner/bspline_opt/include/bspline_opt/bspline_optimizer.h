@@ -124,7 +124,7 @@ namespace ego_planner
     Eigen::VectorXd best_variable_; //
     double min_cost_;               //
 
-    ControlPoints cps_;
+    ControlPoints cps_; // 控制点
 
     /* cost function */
     /* calculate each part of cost function with control points q as input */

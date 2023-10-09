@@ -56,6 +56,7 @@ namespace ego_planner
 
   void EGOReplanFSM::planGlobalTrajbyGivenWps()
   {
+    // 根据给定航点，计算全局轨迹，最后展示轨迹
     std::vector<Eigen::Vector3d> wps(waypoint_num_);
     for (int i = 0; i < waypoint_num_; i++)
     {
@@ -77,10 +78,10 @@ namespace ego_planner
     {
 
       /*** display ***/
-      constexpr double step_size_t = 0.1;
+      constexpr double step_size_t = 0.1; // 抽样间隔
       int i_end = floor(planner_manager_->global_data_.global_duration_ / step_size_t);
       std::vector<Eigen::Vector3d> gloabl_traj(i_end);
-      for (int i = 0; i < i_end; i++)
+      for (int i = 0; i < i_end; i++) // 按间隔抽样
       {
         gloabl_traj[i] = planner_manager_->global_data_.global_traj_.evaluate(i * step_size_t);
       }
@@ -97,7 +98,7 @@ namespace ego_planner
 
       // visualization_->displayGoalPoint(end_pt_, Eigen::Vector4d(1, 0, 0, 1), 0.3, 0);
       ros::Duration(0.001).sleep();
-      visualization_->displayGlobalPathList(gloabl_traj, 0.1, 0);
+      visualization_->displayGlobalPathList(gloabl_traj, 0.1, 0); // 显示全局路径
       ros::Duration(0.001).sleep();
     }
     else
@@ -108,6 +109,7 @@ namespace ego_planner
 
   void EGOReplanFSM::waypointCallback(const nav_msgs::PathConstPtr &msg)
   {
+    //
     if (msg->poses[0].pose.position.z < -0.1)
       return;
 
@@ -344,7 +346,7 @@ namespace ego_planner
 
   bool EGOReplanFSM::planFromCurrentTraj()
   {
-
+    // 从当前轨迹继续规划
     LocalTrajData *info = &planner_manager_->local_data_;
     ros::Time time_now = ros::Time::now();
     double t_cur = (time_now - info->start_time_).toSec();
@@ -355,15 +357,15 @@ namespace ego_planner
     start_vel_ = info->velocity_traj_.evaluateDeBoorT(t_cur);
     start_acc_ = info->acceleration_traj_.evaluateDeBoorT(t_cur);
 
-    bool success = callReboundReplan(false, false);
+    bool success = callReboundReplan(false, false); // 1
 
     if (!success)
     {
-      success = callReboundReplan(true, false);
+      success = callReboundReplan(true, false); // 2
       //changeFSMExecState(EXEC_TRAJ, "FSM");
       if (!success)
       {
-        success = callReboundReplan(true, true);
+        success = callReboundReplan(true, true);  // 3
         if (!success)
         {
           return false;
@@ -393,6 +395,7 @@ namespace ego_planner
 
       if (map->getInflateOccupancy(info->position_traj_.evaluateDeBoorT(t)))
       {
+        // 如果规划失败，则说明避障失败
         if (planFromCurrentTraj()) // Make a chance
         {
           changeFSMExecState(EXEC_TRAJ, "SAFETY");
